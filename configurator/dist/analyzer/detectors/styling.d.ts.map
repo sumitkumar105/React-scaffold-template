@@ -1,0 +1,1 @@
+{"version":3,"file":"styling.d.ts","sourceRoot":"","sources":["../../../src/analyzer/detectors/styling.ts"],"names":[],"mappings":"AAGA,MAAM,WAAW,aAAa;IAC5B,UAAU,EAAE,MAAM,EAAE,CAAA;IACpB,WAAW,EAAE,OAAO,CAAA;IACpB,UAAU,EAAE,OAAO,CAAA;IACnB,OAAO,EAAE,OAAO,CAAA;IAChB,aAAa,EAAE,OAAO,CAAA;CACvB;AAED;;GAEG;AACH,wBAAsB,aAAa,CAAC,WAAW,EAAE,MAAM,GAAG,OAAO,CAAC,aAAa,CAAC,CAgI/E"}
