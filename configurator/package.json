@@ -1,5 +1,5 @@
 {
-  "name": "create-react-scaffold",
+  "name": "create-react-scaffold-configurator",
   "version": "1.0.0",
   "description": "CLI tool to scaffold modern React projects with feature-based architecture, TypeScript, and Vite",
   "type": "module",
