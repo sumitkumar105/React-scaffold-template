@@ -54,7 +54,7 @@
   "homepage": "https://github.com/yourusername/create-react-scaffold#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/create-react-scaffold.git"
+    "url": "https://github.com/sumitkumar105/React-scaffold-template.git"
   },
   "bugs": {
     "url": "https://github.com/yourusername/create-react-scaffold/issues"
