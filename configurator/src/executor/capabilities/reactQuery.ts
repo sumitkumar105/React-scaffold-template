@@ -1,19 +1,17 @@
 import path from 'path'
 import fs from 'fs-extra'
-import type { Plan } from '../../planner/index.js'
+import type { Plan } from '../../types.js'
 import { addDependencies } from '../../utils/npm.js'
 import {
   writeFile,
   readFile,
   fileExists,
 } from '../../utils/files.js'
+import { regenerateProviders } from './providerComposer.js'
 
-/**
- * Execute React Query installation
- */
 export async function executeReactQuery(
   projectPath: string,
-  plan: Plan
+  _plan: Plan
 ): Promise<void> {
   // Step 1: Add dependencies
   await addDependencies(
@@ -25,95 +23,72 @@ export async function executeReactQuery(
     false
   )
 
-  // Step 2: Create providers directory and QueryProvider
-  const providersDir = path.join(projectPath, 'src/providers')
-  await fs.ensureDir(providersDir)
+  // Step 2: Create queryClient config
+  const servicesDir = path.join(projectPath, 'src/services/api')
+  await fs.ensureDir(servicesDir)
 
-  const queryProviderContent = `import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
-import { ReactNode, useState } from 'react'
+  const queryClientContent = `import { QueryClient } from '@tanstack/react-query'
 
-interface QueryProviderProps {
-  children: ReactNode
-}
-
-export function QueryProvider({ children }: QueryProviderProps) {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 60 * 1000, // 1 minute
-            retry: 1,
-            refetchOnWindowFocus: false,
-          },
-        },
-      })
-  )
-
-  return (
-    <QueryClientProvider client={queryClient}>
-      {children}
-      <ReactQueryDevtools initialIsOpen={false} />
-    </QueryClientProvider>
-  )
-}
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60 * 1000,
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+})
 `
+  await writeFile(path.join(servicesDir, 'queryClient.ts'), queryClientContent)
 
-  await writeFile(
-    path.join(providersDir, 'QueryProvider.tsx'),
-    queryProviderContent
-  )
-
-  // Step 3: Create API hooks
-  const hooksDir = path.join(projectPath, 'src/hooks')
+  // Step 3: Create useApiQuery hook
+  const hooksDir = path.join(projectPath, 'src/shared/hooks')
   await fs.ensureDir(hooksDir)
 
-  const useApiContent = `import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query'
+  const useApiQueryContent = `import { useQuery, type UseQueryOptions } from '@tanstack/react-query'
+import { apiClient } from '@services/index'
+import type { AxiosError } from 'axios'
 
-// Generic fetch function
-async function fetchData<T>(url: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
-    ...options,
-  })
-
-  if (!response.ok) {
-    throw new Error(\`HTTP error! status: \${response.status}\`)
-  }
-
-  return response.json()
-}
-
-// GET request hook
 export function useApiQuery<T>(
   key: string[],
   url: string,
-  options?: Omit<UseQueryOptions<T, Error>, 'queryKey' | 'queryFn'>
+  options?: Omit<UseQueryOptions<T, AxiosError>, 'queryKey' | 'queryFn'>
 ) {
-  return useQuery({
+  return useQuery<T, AxiosError>({
     queryKey: key,
-    queryFn: () => fetchData<T>(url),
+    queryFn: async () => {
+      const { data } = await apiClient.get<T>(url)
+      return data
+    },
     ...options,
   })
 }
+`
+  await writeFile(path.join(hooksDir, 'useApiQuery.ts'), useApiQueryContent)
 
-// POST/PUT/DELETE mutation hook
+  // Step 4: Create useApiMutation hook
+  const useApiMutationContent = `import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { apiClient } from '@services/index'
+import type { AxiosError } from 'axios'
+
+interface MutationOptions<TData> {
+  onSuccess?: (data: TData) => void
+  onError?: (error: AxiosError) => void
+  invalidateKeys?: string[][]
+}
+
 export function useApiMutation<TData, TVariables>(
-  mutationFn: (variables: TVariables) => Promise<TData>,
-  options?: {
-    onSuccess?: (data: TData) => void
-    onError?: (error: Error) => void
-    invalidateKeys?: string[][]
-  }
+  method: 'post' | 'put' | 'patch' | 'delete',
+  url: string,
+  options?: MutationOptions<TData>
 ) {
   const queryClient = useQueryClient()
 
-  return useMutation({
-    mutationFn,
+  return useMutation<TData, AxiosError, TVariables>({
+    mutationFn: async (variables) => {
+      const { data } = await apiClient[method]<TData>(url, variables)
+      return data
+    },
     onSuccess: (data) => {
       options?.onSuccess?.(data)
       options?.invalidateKeys?.forEach((key) => {
@@ -123,70 +98,22 @@ export function useApiMutation<TData, TVariables>(
     onError: options?.onError,
   })
 }
-
-// POST request helper
-export async function postData<T, D>(url: string, data: D): Promise<T> {
-  return fetchData<T>(url, {
-    method: 'POST',
-    body: JSON.stringify(data),
-  })
-}
-
-// PUT request helper
-export async function putData<T, D>(url: string, data: D): Promise<T> {
-  return fetchData<T>(url, {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  })
-}
-
-// DELETE request helper
-export async function deleteData<T>(url: string): Promise<T> {
-  return fetchData<T>(url, {
-    method: 'DELETE',
-  })
-}
 `
+  await writeFile(path.join(hooksDir, 'useApiMutation.ts'), useApiMutationContent)
 
-  await writeFile(path.join(hooksDir, 'useApi.ts'), useApiContent)
-
-  // Step 4: Update main.tsx to wrap with QueryProvider
-  const mainPath = path.join(projectPath, 'src/main.tsx')
-  if (await fileExists(mainPath)) {
-    let mainContent = await readFile(mainPath)
-
-    // Add QueryProvider import if not present
-    if (!mainContent.includes('QueryProvider')) {
-      // Add import after other imports
-      const lastImportIndex = mainContent.lastIndexOf('import')
-      const nextLineIndex = mainContent.indexOf('\n', lastImportIndex)
-      const importStatement = `\nimport { QueryProvider } from './providers/QueryProvider'`
-
-      mainContent =
-        mainContent.slice(0, nextLineIndex) +
-        importStatement +
-        mainContent.slice(nextLineIndex)
-
-      // Wrap App with QueryProvider
-      // Find the BrowserRouter and wrap content
-      if (mainContent.includes('<BrowserRouter>')) {
-        mainContent = mainContent.replace(
-          '<BrowserRouter>',
-          '<QueryProvider>\n    <BrowserRouter>'
-        )
-        mainContent = mainContent.replace(
-          '</BrowserRouter>',
-          '</BrowserRouter>\n    </QueryProvider>'
-        )
-      } else if (mainContent.includes('<App />') || mainContent.includes('<App/>')) {
-        // If no BrowserRouter, wrap App directly
-        mainContent = mainContent.replace(
-          /<App\s*\/>/,
-          '<QueryProvider>\n      <App />\n    </QueryProvider>'
-        )
-      }
-
-      await writeFile(mainPath, mainContent)
+  // Step 5: Update hooks barrel export
+  const hooksIndexPath = path.join(projectPath, 'src/shared/hooks/index.ts')
+  if (await fileExists(hooksIndexPath)) {
+    let hooksIndex = await readFile(hooksIndexPath)
+    if (!hooksIndex.includes('useApiQuery')) {
+      hooksIndex += `export { useApiQuery } from './useApiQuery'\n`
     }
+    if (!hooksIndex.includes('useApiMutation')) {
+      hooksIndex += `export { useApiMutation } from './useApiMutation'\n`
+    }
+    await writeFile(hooksIndexPath, hooksIndex)
   }
+
+  // Step 6: Update providers
+  await regenerateProviders(projectPath)
 }

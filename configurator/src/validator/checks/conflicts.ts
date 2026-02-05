@@ -6,37 +6,32 @@ interface CheckResult {
   errors: string[]
 }
 
-// Define potential conflicts between capabilities
 const CAPABILITY_CONFLICTS: Record<string, { soft: string[]; hard: string[] }> = {
   tailwind: {
-    soft: [], // Tailwind works with most setups
+    soft: [],
     hard: [],
   },
-  toast: {
-    soft: [], // Multiple toast libraries can coexist but may be confusing
+  redux: {
+    soft: [],
     hard: [],
   },
   forms: {
-    soft: [], // Form libraries can coexist but typically you use one
+    soft: [],
     hard: [],
   },
   reactQuery: {
-    soft: [], // Can coexist with other data fetching solutions
+    soft: [],
     hard: [],
   },
 }
 
-// Capability requirements
-const CAPABILITY_REQUIREMENTS: Record<string, { react: string; node?: string }> = {
+const CAPABILITY_REQUIREMENTS: Record<string, { react: string }> = {
   tailwind: { react: '>=16.0.0' },
-  toast: { react: '>=18.0.0' },
+  redux: { react: '>=18.0.0' },
   forms: { react: '>=16.8.0' },
   reactQuery: { react: '>=18.0.0' },
 }
 
-/**
- * Check for conflicts between capabilities and project setup
- */
 export async function checkConflicts(
   projectPath: string,
   capabilities: string[]
@@ -79,14 +74,13 @@ export async function checkConflicts(
         for (const capability of capabilities) {
           const requirements = CAPABILITY_REQUIREMENTS[capability]
           if (requirements) {
-            // Simple version check (would need semver for proper comparison)
             const versionMatch = reactVersion.match(/\d+/)
             if (versionMatch) {
               const majorVersion = parseInt(versionMatch[0], 10)
 
-              if (capability === 'toast' && majorVersion < 18) {
+              if (capability === 'redux' && majorVersion < 18) {
                 warnings.push(
-                  `Sonner works best with React 18+. You have React ${reactVersion}.`
+                  `React-Redux v9 works best with React 18+. You have React ${reactVersion}.`
                 )
               }
 

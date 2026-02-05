@@ -1,13 +1,12 @@
 import path from 'path';
 import { fileExists, readFile } from '../../utils/files.js';
-// Map capabilities to their indicator packages/files
 const CAPABILITY_INDICATORS = {
     tailwind: {
         packages: ['tailwindcss'],
         files: ['tailwind.config.js', 'tailwind.config.ts', 'tailwind.config.cjs'],
     },
-    toast: {
-        packages: ['sonner', 'react-toastify', 'react-hot-toast', 'notistack'],
+    redux: {
+        packages: ['@reduxjs/toolkit', 'redux', 'mobx', 'zustand'],
         files: [],
     },
     forms: {
@@ -19,9 +18,6 @@ const CAPABILITY_INDICATORS = {
         files: [],
     },
 };
-/**
- * Check for duplicate/existing installations of capabilities
- */
 export async function checkDuplicates(projectPath, capabilities) {
     const warnings = [];
     const errors = [];
@@ -45,11 +41,10 @@ export async function checkDuplicates(projectPath, capabilities) {
         const indicators = CAPABILITY_INDICATORS[capability];
         if (!indicators)
             continue;
-        // Check packages
         for (const pkg of indicators.packages) {
             if (allDeps[pkg]) {
-                if (capability === 'toast' && pkg !== 'sonner') {
-                    warnings.push(`Found existing toast library '${pkg}'. Adding Sonner may cause conflicts.`);
+                if (capability === 'redux' && pkg !== '@reduxjs/toolkit') {
+                    warnings.push(`Found existing state management library '${pkg}'. Adding Redux Toolkit may cause conflicts.`);
                 }
                 else if (capability === 'forms' && pkg !== 'react-hook-form') {
                     warnings.push(`Found existing form library '${pkg}'. Adding React Hook Form may cause conflicts.`);
@@ -62,7 +57,6 @@ export async function checkDuplicates(projectPath, capabilities) {
                 }
             }
         }
-        // Check config files
         for (const file of indicators.files) {
             const filePath = path.join(projectPath, file);
             if (await fileExists(filePath)) {

@@ -6,14 +6,13 @@ interface CheckResult {
   errors: string[]
 }
 
-// Map capabilities to their indicator packages/files
 const CAPABILITY_INDICATORS: Record<string, { packages: string[]; files: string[] }> = {
   tailwind: {
     packages: ['tailwindcss'],
     files: ['tailwind.config.js', 'tailwind.config.ts', 'tailwind.config.cjs'],
   },
-  toast: {
-    packages: ['sonner', 'react-toastify', 'react-hot-toast', 'notistack'],
+  redux: {
+    packages: ['@reduxjs/toolkit', 'redux', 'mobx', 'zustand'],
     files: [],
   },
   forms: {
@@ -26,9 +25,6 @@ const CAPABILITY_INDICATORS: Record<string, { packages: string[]; files: string[
   },
 }
 
-/**
- * Check for duplicate/existing installations of capabilities
- */
 export async function checkDuplicates(
   projectPath: string,
   capabilities: string[]
@@ -58,12 +54,11 @@ export async function checkDuplicates(
     const indicators = CAPABILITY_INDICATORS[capability]
     if (!indicators) continue
 
-    // Check packages
     for (const pkg of indicators.packages) {
       if (allDeps[pkg]) {
-        if (capability === 'toast' && pkg !== 'sonner') {
+        if (capability === 'redux' && pkg !== '@reduxjs/toolkit') {
           warnings.push(
-            `Found existing toast library '${pkg}'. Adding Sonner may cause conflicts.`
+            `Found existing state management library '${pkg}'. Adding Redux Toolkit may cause conflicts.`
           )
         } else if (capability === 'forms' && pkg !== 'react-hook-form') {
           warnings.push(
@@ -81,7 +76,6 @@ export async function checkDuplicates(
       }
     }
 
-    // Check config files
     for (const file of indicators.files) {
       const filePath = path.join(projectPath, file)
       if (await fileExists(filePath)) {

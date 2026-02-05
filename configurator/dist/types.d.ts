@@ -1,6 +1,3 @@
-/**
- * Shared types for the configurator library
- */
 export interface Capability {
     name: string;
     value: string;

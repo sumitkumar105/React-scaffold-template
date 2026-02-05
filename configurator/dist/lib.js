@@ -1,27 +1,14 @@
-/**
- * React Configurator - Library Entry Point
- *
- * This file exports all functions for using configurator as a library.
- *
- * Usage:
- *   import { generateProject, injectCapabilities, CAPABILITIES } from 'react-configurator'
- */
 import path from 'path';
 import fs from 'fs-extra';
-// Re-export types
 export * from './types.js';
-// Re-export constants
 export { CAPABILITIES } from './types.js';
-// Re-export core functions
 export { analyzeProject } from './analyzer/index.js';
 export { createPlan } from './planner/index.js';
 export { executeCapability } from './executor/index.js';
 export { validateProject } from './validator/index.js';
-// Re-export utilities
 export { copyTemplate, readFile, writeFile, fileExists } from './utils/files.js';
 export { cloneRepository } from './utils/git.js';
 export { installDependencies, addDependencies } from './utils/npm.js';
-// Import for internal use
 import { copyTemplate } from './utils/files.js';
 import { cloneRepository } from './utils/git.js';
 import { installDependencies } from './utils/npm.js';
@@ -29,25 +16,20 @@ import { analyzeProject } from './analyzer/index.js';
 import { createPlan } from './planner/index.js';
 import { executeCapability } from './executor/index.js';
 import { validateProject } from './validator/index.js';
-/**
- * Generate a new project from template with selected capabilities
- *
- * @example
- * ```typescript
- * import { generateProject } from 'react-configurator'
- *
- * const result = await generateProject({
- *   projectName: 'my-app',
- *   capabilities: ['tailwind', 'toast'],
- *   outputPath: '/path/to/output/my-app',
- *   templatePath: '/path/to/template',
- * })
- *
- * if (result.success) {
- *   console.log('Project created at:', result.outputPath)
- * }
- * ```
- */
+async function updateProjectName(outputPath, projectName) {
+    const packageJsonPath = path.join(outputPath, 'package.json');
+    if (await fs.pathExists(packageJsonPath)) {
+        const packageJson = await fs.readJson(packageJsonPath);
+        packageJson.name = projectName;
+        await fs.writeJson(packageJsonPath, packageJson, { spaces: 2 });
+    }
+    const indexHtmlPath = path.join(outputPath, 'index.html');
+    if (await fs.pathExists(indexHtmlPath)) {
+        let html = await fs.readFile(indexHtmlPath, 'utf-8');
+        html = html.replace(/<title>.*?<\/title>/, `<title>${projectName}</title>`);
+        await fs.writeFile(indexHtmlPath, html, 'utf-8');
+    }
+}
 export async function generateProject(options) {
     const { projectName, capabilities, outputPath, templatePath, skipInstall = false, } = options;
     const errors = [];
@@ -62,9 +44,11 @@ export async function generateProject(options) {
         else {
             await copyTemplate(templatePath, outputPath);
         }
-        // Step 2: Analyze project structure
+        // Step 2: Update project name in package.json and index.html
+        await updateProjectName(outputPath, projectName);
+        // Step 3: Analyze project structure
         analysis = await analyzeProject(outputPath);
-        // Step 3: Validate before applying capabilities
+        // Step 4: Validate before applying capabilities
         if (capabilities.length > 0) {
             validation = await validateProject(outputPath, capabilities);
             if (!validation.valid) {
@@ -77,7 +61,7 @@ export async function generateProject(options) {
                     errors: validation.errors,
                 };
             }
-            // Step 4: Apply each capability
+            // Step 5: Apply each capability in order
             for (const capability of capabilities) {
                 try {
                     const plan = await createPlan(capability, analysis);
@@ -89,7 +73,7 @@ export async function generateProject(options) {
                 }
             }
         }
-        // Step 5: Install dependencies
+        // Step 6: Install dependencies
         if (!skipInstall) {
             try {
                 await installDependencies(outputPath);
@@ -125,37 +109,16 @@ export async function generateProject(options) {
         };
     }
 }
-/**
- * Inject capabilities into an existing project
- *
- * @example
- * ```typescript
- * import { injectCapabilities } from 'react-configurator'
- *
- * const result = await injectCapabilities({
- *   projectPath: '/path/to/existing/project',
- *   capabilities: ['tailwind', 'forms'],
- * })
- *
- * if (result.success) {
- *   console.log('Applied:', result.appliedCapabilities)
- * }
- * ```
- */
 export async function injectCapabilities(options) {
     const { projectPath, capabilities, skipInstall = false } = options;
     const errors = [];
     const appliedCapabilities = [];
     try {
-        // Step 1: Verify project exists
         if (!await fs.pathExists(projectPath)) {
             throw new Error(`Project path does not exist: ${projectPath}`);
         }
-        // Step 2: Analyze project structure
         const analysis = await analyzeProject(projectPath);
-        // Step 3: Validate
         const validation = await validateProject(projectPath, capabilities);
-        // Step 4: Apply each capability
         for (const capability of capabilities) {
             try {
                 const plan = await createPlan(capability, analysis);
@@ -166,7 +129,6 @@ export async function injectCapabilities(options) {
                 errors.push(`Failed to apply ${capability}: ${error instanceof Error ? error.message : String(error)}`);
             }
         }
-        // Step 5: Install dependencies
         if (!skipInstall && appliedCapabilities.length > 0) {
             try {
                 await installDependencies(projectPath);
@@ -200,19 +162,6 @@ export async function injectCapabilities(options) {
         };
     }
 }
-/**
- * Get preview of what files will be created/modified for given capabilities
- * Useful for showing users what will happen before they confirm
- *
- * @example
- * ```typescript
- * import { previewCapabilities } from 'react-configurator'
- *
- * const preview = await previewCapabilities('/path/to/project', ['tailwind'])
- * console.log('Files to create:', preview.filesToCreate)
- * console.log('Files to modify:', preview.filesToModify)
- * ```
- */
 export async function previewCapabilities(projectPath, capabilities) {
     const filesToCreate = [];
     const filesToModify = [];
@@ -244,7 +193,7 @@ export async function previewCapabilities(projectPath, capabilities) {
             }
         }
     }
-    catch (error) {
+    catch {
         // Return empty preview on error
     }
     return {
@@ -254,26 +203,13 @@ export async function previewCapabilities(projectPath, capabilities) {
         devDependenciesToAdd,
     };
 }
-/**
- * Check if a project already has certain capabilities installed
- *
- * @example
- * ```typescript
- * import { detectInstalledCapabilities } from 'react-configurator'
- *
- * const installed = await detectInstalledCapabilities('/path/to/project')
- * console.log('Installed:', installed) // ['tailwind', 'reactQuery']
- * ```
- */
 export async function detectInstalledCapabilities(projectPath) {
     const installed = [];
     try {
         const analysis = await analyzeProject(projectPath);
-        // Check for Tailwind
         if (analysis.styling.includes('tailwind')) {
             installed.push('tailwind');
         }
-        // Check package.json for other capabilities
         const packageJsonPath = path.join(projectPath, 'package.json');
         if (await fs.pathExists(packageJsonPath)) {
             const packageJson = await fs.readJson(packageJsonPath);
@@ -281,15 +217,15 @@ export async function detectInstalledCapabilities(projectPath) {
                 ...packageJson.dependencies,
                 ...packageJson.devDependencies,
             };
-            if (allDeps['sonner'])
-                installed.push('toast');
+            if (allDeps['@reduxjs/toolkit'])
+                installed.push('redux');
             if (allDeps['react-hook-form'])
                 installed.push('forms');
             if (allDeps['@tanstack/react-query'])
                 installed.push('reactQuery');
         }
     }
-    catch (error) {
+    catch {
         // Return empty array on error
     }
     return installed;
