@@ -7,7 +7,7 @@
   "module": "./dist/lib.js",
   "types": "./dist/lib.d.ts",
   "bin": {
-    "create-react-scaffold": "./dist/index.js"
+    "create-react-scaffold-configurator": "./dist/index.js"
   },
   "exports": {
     ".": {
@@ -30,7 +30,7 @@
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build",
-    "test:local": "npm link && create-react-scaffold test-project --skip-install && rm -rf test-project && npm unlink -g create-react-scaffold",
+    "test:local": "npm link && create-react-scaffold-configurator test-project --skip-install && rm -rf test-project && npm unlink -g create-react-scaffold-configurator",
     "clean": "node -e \"const fs=require('fs-extra');fs.removeSync('./dist');fs.removeSync('./template');console.log('Cleaned dist and template')\""
   },
   "keywords": [
@@ -51,13 +51,13 @@
   ],
   "author": "",
   "license": "MIT",
-  "homepage": "https://github.com/yourusername/create-react-scaffold#readme",
+  "homepage": "https://github.com/yourusername/create-react-scaffold-configurator#readme",
   "repository": {
     "type": "git",
     "url": "https://github.com/sumitkumar105/React-scaffold-template.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/create-react-scaffold/issues"
+    "url": "https://github.com/yourusername/create-react-scaffold-configurator/issues"
   },
   "dependencies": {
     "chalk": "^5.3.0",
